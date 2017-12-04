@@ -1,6 +1,8 @@
+原文链接：https://www.ripstech.com/php-security-calendar-2017/
 ## Table of Contents
 - [Day 1 - White List](#day-1---white-list)
 - [Day 2 - Twig](#day-2---twig)
+- [Day 3 - Snow Flake](#day-3---snow-flake)
 
 ## Day 1 - White List
 Can you spot the vulnerability?
@@ -78,5 +80,47 @@ The challenge contains a cross-site scripting vulnerability in line 26. There ar
 
 The vulnerability can still be exploited with the following URL: `?nextSlide=javascript://comment%250aalert(1)`.
 The payload does not involve any markup characters that would be affected by Twig's escaping. At the same time, it is a valid URL for `filter_var()`. We used a JavaScript protocol handler, followed by a JavaScript comment introduced with `//` and then the actual JS payload follows on a newline. When the link is clicked, the JavaScript payload is executed in the browser of the victim.
+
+[Back to TOC](#table-of-contents)
+
+## Day 3 - Snow Flake
+Can you spot the vulnerability?
+```PHP
+function __autoload($className) {
+    include $className;
+}
+
+$controllerName = $_GET['c'];
+$data = $_GET['d'];
+
+if (class_exists($controllerName)) {
+    $controller = new $controllerName($data);
+    $controller->render();
+} else {
+    echo 'There is no page with this name';
+}
+
+class HomeController {
+    private $data;
+
+    public function __construct($data) {
+        $this->data = $data;
+    }
+
+    public function render() {
+        if ($this->data['new']) {
+            echo 'controller rendering new response';
+        } else {
+            echo 'controller rendering old response';
+        }
+    }
+}
+```
+
+**solution**
+
+In this code are two security bugs. A file inclusion vulnerability is triggered by the call of `class_exists()` in line 8. Here, the existance of a user supplied class name is checked. This automatically invokes the custom autoloader in line 1 in case the class name is unknown which will try to include unknown classes. An attacker can abuse this file inclusion by using a path traversal attack. The lookup for the class name `../../../../etc/passwd` will leak the passwd file. The attack only works until version 5.3 of PHP.
+
+But there is a second bug that also works in recent PHP versions. In line 9, the class name is used for a new object instantiation. The first argument of its constructor is under the attackers control as well. Arbitrary constructors of the PHP code base can be called. Even if the code itself does not contain a vulnerable constructor, PHP's built-in class `SimpleXMLElement` can be used for an XXE attack that also leads to the exposure of files. A real world example of this exploit can be found in our [blog post](https://blog.ripstech.com/2017/shopware-php-object-instantiation-to-blind-xxe/).
 
 [Back to TOC](#table-of-contents)
