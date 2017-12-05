@@ -124,3 +124,31 @@ In this code are two security bugs. A file inclusion vulnerability is triggered 
 But there is a second bug that also works in recent PHP versions. In line 9, the class name is used for a new object instantiation. The first argument of its constructor is under the attackers control as well. Arbitrary constructors of the PHP code base can be called. Even if the code itself does not contain a vulnerable constructor, PHP's built-in class `SimpleXMLElement` can be used for an XXE attack that also leads to the exposure of files. A real world example of this exploit can be found in our [blog post](https://blog.ripstech.com/2017/shopware-php-object-instantiation-to-blind-xxe/).
 
 [Back to TOC](#table-of-contents)
+
+## Day 4 - False Beard
+```PHP
+class Login {
+    public function __construct($user, $pass) {
+        $this->loginViaXml($user, $pass);
+    }
+
+    public function loginViaXml($user, $pass) {
+        if (
+            (!strpos($user, '<') || !strpos($user, '>')) &&
+            (!strpos($pass, '<') || !strpos($pass, '>'))
+        ) {
+            $format = '<xml><user="%s"/><pass="%s"/></xml>';
+            $xml = sprintf($format, $user, $pass);
+            $xmlElement = new SimpleXMLElement($xml);
+            // Perform the actual login.
+            $this->login($xmlElement);
+        }
+    }
+}
+
+new Login($_POST['username'], $_POST['password']);
+```
+
+**solution**
+
+This challenge suffers from an XML injection vulnerability in line 13. An attacker can manipulate the XML structure and hence bypass the authentication. There is an attempt to prevent exploitation in lines 8 and 9 by searching for angle brackets but the check can be bypassed with a specifically crafted payload. The bug in this code is the automatic casting of variables in PHP. The PHP built-in function `strpos()` returns the numeric position of the looked up character. This can be `0` if the first character is the one searched for. The 0 is then type-casted to a boolean `false` for the `if` comparison which renders the overall constraint to true. A possible payload could look like `user=<"><injected-tag%20property="&pass=<injected-tag>`.
