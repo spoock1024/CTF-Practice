@@ -1,8 +1,13 @@
 原文链接：https://www.ripstech.com/php-security-calendar-2017/
+
+[中文版](README_CN.md)
+
 ## Table of Contents
 - [Day 1 - White List](#day-1---white-list)
 - [Day 2 - Twig](#day-2---twig)
 - [Day 3 - Snow Flake](#day-3---snow-flake)
+- [Day 4 - False Beard](#day-4---false-beard)
+- [Day 5 - Postcard](#day-5---postcard)
 
 ## Day 1 - White List
 Can you spot the vulnerability?
@@ -126,6 +131,7 @@ But there is a second bug that also works in recent PHP versions. In line 9, the
 [Back to TOC](#table-of-contents)
 
 ## Day 4 - False Beard
+Can you spot the vulnerability?
 ```PHP
 class Login {
     public function __construct($user, $pass) {
@@ -152,3 +158,53 @@ new Login($_POST['username'], $_POST['password']);
 **solution**
 
 This challenge suffers from an XML injection vulnerability in line 13. An attacker can manipulate the XML structure and hence bypass the authentication. There is an attempt to prevent exploitation in lines 8 and 9 by searching for angle brackets but the check can be bypassed with a specifically crafted payload. The bug in this code is the automatic casting of variables in PHP. The PHP built-in function `strpos()` returns the numeric position of the looked up character. This can be `0` if the first character is the one searched for. The 0 is then type-casted to a boolean `false` for the `if` comparison which renders the overall constraint to true. A possible payload could look like `user=<"><injected-tag%20property="&pass=<injected-tag>`.
+
+[Back to TOC](#table-of-contents)
+
+## Day 5 - Postcard
+Can you spot the vulnerability?
+```PHP
+class Mailer {
+    private function sanitize($email) {
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return '';
+        }
+
+        return escapeshellarg($email);
+    }
+
+    public function send($data) {
+        if (!isset($data['to'])) {
+            $data['to'] = 'none@ripstech.com';
+        } else {
+            $data['to'] = $this->sanitize($data['to']);
+        }
+
+        if (!isset($data['from'])) {
+            $data['from'] = 'none@ripstech.com';
+        } else {
+            $data['from'] = $this->sanitize($data['from']);
+        }
+
+        if (!isset($data['subject'])) {
+            $data['subject'] = 'No Subject';
+        }
+
+        if (!isset($data['message'])) {
+            $data['message'] = '';
+        }
+
+        mail($data['to'], $data['subject'], $data['message'],
+             '', "-f" . $data['from']);
+    }
+}
+
+$mailer = new Mailer();
+$mailer->send($_POST);
+```
+
+**solution**
+
+This challenge suffers from a command execution vulnerability in line 31. The fifth parameter of mail, in this case the variable `$_POST['from']`, is appended to the sendmail command that is executed to send out the email. It is not possible to execute arbitrary commands here but it is possible to append arbitrary new parameters to sendmail. This can be abused to create a PHP backdoor in the web directory through the log files of sendmail.
+
+There are 2 insufficient protections in place that try to prevent successful exploitation. The method `sanitize()` first checks in line 3 if the e-mail address is valid. However, not all characters that are necessary to exploit the security issue in `mail()` are forbidden by this filter. It allows the usage of escaped whitespaces nested in double quotes. In line 7 the e-mail address gets sanitized with `escapeshellarg()`. This would be sufficient if PHP would not escape the fifth parameter internally with `escapeshellcmd()`. Since it does escape the parameter again, the `escapeshellcmd()` allows an attacker to break out of the `escapeshellarg()`. More information, details, and a PoC can be found in our blog post ["Why mail() is dangerous in PHP"](https://blog.ripstech.com/2017/why-mail-is-dangerous-in-php/).
