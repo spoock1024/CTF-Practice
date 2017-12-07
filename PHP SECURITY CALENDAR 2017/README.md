@@ -208,3 +208,39 @@ $mailer->send($_POST);
 This challenge suffers from a command execution vulnerability in line 31. The fifth parameter of mail, in this case the variable `$_POST['from']`, is appended to the sendmail command that is executed to send out the email. It is not possible to execute arbitrary commands here but it is possible to append arbitrary new parameters to sendmail. This can be abused to create a PHP backdoor in the web directory through the log files of sendmail.
 
 There are 2 insufficient protections in place that try to prevent successful exploitation. The method `sanitize()` first checks in line 3 if the e-mail address is valid. However, not all characters that are necessary to exploit the security issue in `mail()` are forbidden by this filter. It allows the usage of escaped whitespaces nested in double quotes. In line 7 the e-mail address gets sanitized with `escapeshellarg()`. This would be sufficient if PHP would not escape the fifth parameter internally with `escapeshellcmd()`. Since it does escape the parameter again, the `escapeshellcmd()` allows an attacker to break out of the `escapeshellarg()`. More information, details, and a PoC can be found in our blog post ["Why mail() is dangerous in PHP"](https://blog.ripstech.com/2017/why-mail-is-dangerous-in-php/).
+
+## Day 6 - Frost Pattern
+Can you spot the vulnerability?
+```PHP
+class TokenStorage {
+    public function performAction($action, $data) {
+        switch ($action) {
+            case 'create':
+                $this->createToken($data);
+                break;
+            case 'delete':
+                $this->clearToken($data);
+                break;
+            default:
+                throw new Exception('Unknown action');
+        }
+    }
+
+    public function createToken($seed) {
+        $token = md5($seed);
+        file_put_contents('/tmp/tokens/' . $token, '...data');
+    }
+
+    public function clearToken($token) {
+        $file = preg_replace("/[^a-z.-_]/", "", $token);
+        unlink('/tmp/tokens/' . $file);
+    }
+}
+
+$storage = new TokenStorage();
+$storage->performAction($_GET['action'], $_GET['data']);
+```
+
+**solution**
+
+This challenge contains a file delete vulnerability. The bug causing this issue is a non-escaped hyphen character (`-`) in the regular expression that is used in the `preg_replace()` call in line 21. If the hyphen is not escaped, it is used as a range indicator, leading to a replacement of any character that is not a-z or an ASCII character in the range between dot (`46`) and underscore (`95`). Thus dot and slash can be used for directory traversal and (almost) arbitrary files can be deleted, for example with the query parameters `action=delete&data=../../config.php`.
