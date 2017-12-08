@@ -8,6 +8,8 @@
 - [Day 3 - Snow Flake](#day-3---snow-flake)
 - [Day 4 - False Beard](#day-4---false-beard)
 - [Day 5 - Postcard](#day-5---postcard)
+- [Day 6 - Frost Pattern](#day-6---frost-pattern)
+- [Day 7 - Bells](#day-7---bells)
 
 ## Day 1 - White List
 Can you spot the vulnerability?
@@ -209,6 +211,8 @@ This challenge suffers from a command execution vulnerability in line 31. The fi
 
 There are 2 insufficient protections in place that try to prevent successful exploitation. The method `sanitize()` first checks in line 3 if the e-mail address is valid. However, not all characters that are necessary to exploit the security issue in `mail()` are forbidden by this filter. It allows the usage of escaped whitespaces nested in double quotes. In line 7 the e-mail address gets sanitized with `escapeshellarg()`. This would be sufficient if PHP would not escape the fifth parameter internally with `escapeshellcmd()`. Since it does escape the parameter again, the `escapeshellcmd()` allows an attacker to break out of the `escapeshellarg()`. More information, details, and a PoC can be found in our blog post ["Why mail() is dangerous in PHP"](https://blog.ripstech.com/2017/why-mail-is-dangerous-in-php/).
 
+[Back to TOC](#table-of-contents)
+
 ## Day 6 - Frost Pattern
 Can you spot the vulnerability?
 ```PHP
@@ -244,3 +248,39 @@ $storage->performAction($_GET['action'], $_GET['data']);
 **solution**
 
 This challenge contains a file delete vulnerability. The bug causing this issue is a non-escaped hyphen character (`-`) in the regular expression that is used in the `preg_replace()` call in line 21. If the hyphen is not escaped, it is used as a range indicator, leading to a replacement of any character that is not a-z or an ASCII character in the range between dot (`46`) and underscore (`95`). Thus dot and slash can be used for directory traversal and (almost) arbitrary files can be deleted, for example with the query parameters `action=delete&data=../../config.php`.
+
+[Back to TOC](#table-of-contents)
+
+## Day 7 - Bells
+Can you spot the vulnerability?
+```PHP
+function getUser($id) {
+    global $config, $db;
+    if (!is_resource($db)) {
+        $db = new MySQLi(
+            $config['dbhost'],
+            $config['dbuser'],
+            $config['dbpass'],
+            $config['dbname']
+        );
+    }
+    $sql = "SELECT username FROM users WHERE id = ?";
+    $stmt = $db->prepare($sql);
+    $stmt->bind_param('i', $id);
+    $stmt->bind_result($name);
+    $stmt->execute();
+    $stmt->fetch();
+    return $name;
+}
+
+$var = parse_url($_SERVER['HTTP_REFERER']);
+parse_str($var['query']);
+$currentUser = getUser($id);
+echo '<h1>'.htmlspecialchars($currentUser).'</h1>';
+```
+
+**solution**
+
+This challenge suffers from a connection string injection vulnerability in line 4. It occurs because of the `parse_str()` call in line 21 that behaves very similar to register globals. Query parameters from the referrer are extracted to variables in the current scope, thus we can control the global variable `$config` inside of `getUser()` in lines 5 to 8. To exploit this vulnerability we can connect to our own MySQL server and return arbitrary values for username, for example with the referrer `http://host/?config[dbhost]=10.0.0.5&config[dbuser]=root&config[dbpass]=root&config[dbname]=malicious&id=1`
+
+[Back to TOC](#table-of-contents)
