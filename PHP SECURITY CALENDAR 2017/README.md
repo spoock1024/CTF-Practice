@@ -10,6 +10,7 @@
 - [Day 5 - Postcard](#day-5---postcard)
 - [Day 6 - Frost Pattern](#day-6---frost-pattern)
 - [Day 7 - Bells](#day-7---bells)
+- [Day 8 - Candle](#day-8---candle)
 
 ## Day 1 - White List
 Can you spot the vulnerability?
@@ -282,5 +283,29 @@ echo '<h1>'.htmlspecialchars($currentUser).'</h1>';
 **solution**
 
 This challenge suffers from a connection string injection vulnerability in line 4. It occurs because of the `parse_str()` call in line 21 that behaves very similar to register globals. Query parameters from the referrer are extracted to variables in the current scope, thus we can control the global variable `$config` inside of `getUser()` in lines 5 to 8. To exploit this vulnerability we can connect to our own MySQL server and return arbitrary values for username, for example with the referrer `http://host/?config[dbhost]=10.0.0.5&config[dbuser]=root&config[dbpass]=root&config[dbname]=malicious&id=1`
+
+[Back to TOC](#table-of-contents)
+
+## Day 8 - Candle
+Can you spot the vulnerability?
+```PHP
+header("Content-Type: text/plain");
+
+function complexStrtolower($regex, $value) {
+    return preg_replace(
+        '/(' . $regex . ')/ei',
+        'strtolower("\\1")',
+        $value
+    );
+}
+
+foreach ($_GET as $regex => $value) {
+    echo complexStrtolower($regex, $value) . "\n";
+}
+```
+
+**solution**
+
+This challenge contains a code injection vulnerability in line 4. Prior to PHP 7 the operation `preg_replace()` contained an eval modifier, short `e`. If the modifier is set, the second parameter (replacement) is treated as PHP code. We do not have a direct injection point into the second parameter but we can control the value of `\\1`, as it references the matched regular expression. It is not possible to escape out of the `strtolower()` call but since the referenced value is inside of double quotes, we can use PHP’s curly syntax to inject other function calls. An attack could look like this: `/?.*={${phpinfo()}}`.
 
 [Back to TOC](#table-of-contents)
