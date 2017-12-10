@@ -11,6 +11,7 @@
 - [Day 6 - Frost Pattern](#day-6---frost-pattern)
 - [Day 7 - Bells](#day-7---bells)
 - [Day 8 - Candle](#day-8---candle)
+- [Day 9 - Rabbit](#day-9---rabbit)
 
 ## Day 1 - White List
 Can you spot the vulnerability?
@@ -307,5 +308,38 @@ foreach ($_GET as $regex => $value) {
 **solution**
 
 This challenge contains a code injection vulnerability in line 4. Prior to PHP 7 the operation `preg_replace()` contained an eval modifier, short `e`. If the modifier is set, the second parameter (replacement) is treated as PHP code. We do not have a direct injection point into the second parameter but we can control the value of `\\1`, as it references the matched regular expression. It is not possible to escape out of the `strtolower()` call but since the referenced value is inside of double quotes, we can use PHP’s curly syntax to inject other function calls. An attack could look like this: `/?.*={${phpinfo()}}`.
+
+[Back to TOC](#table-of-contents)
+
+## Day 9 - Rabbit
+Can you spot the vulnerability?
+```PHP
+class LanguageManager
+{
+    public function loadLanguage()
+    {
+        $lang = $this->getBrowserLanguage();
+        $sanitizedLang = $this->sanitizeLanguage($lang);
+        require_once("/lang/$sanitizedLang");
+    }
+
+    private function getBrowserLanguage()
+    {
+        $lang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? 'en';
+        return $lang;
+    }
+
+    private function sanitizeLanguage($language)
+    {
+        return str_replace('../', '', $language);
+    }
+}
+
+(new LanguageManager())->loadLanguage();
+```
+
+**solution**
+
+This challenge contains a file inclusion vulnerability that can allow an attacker to execute arbitrary code on the server or to leak sensitive files. The bug is in the sanitization function in line 18. The replacement of the `../` string is not executed recursively. This allows the attacker to simply use the character sequence `....//` or `..././` that after replacement will end in `../` again. Thus, changing the path to the included language file via path traversal is possible. For example, the system's passwd file can be leaked by setting the following payload in the Accept-Language HTTP request header: `.//....//....//etc/passwd`.
 
 [Back to TOC](#table-of-contents)
