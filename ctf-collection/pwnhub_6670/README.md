@@ -1,0 +1,1 @@
+此题目是P神在2018年大年初一出的题目，这里仅仅只是提供其中的PHP源码。题目的writeup可以去看P神写的文章[攻击LNMP架构Web应用的几个小Tricks](https://www.leavesongs.com/PENETRATION/some-tricks-of-attacking-lnmp-web-application.html),这里就不放writeup了。

@@ -1,7 +1,7 @@
 ## 说明
 本题目是来自于安恒12月赛的题目，主要是考察字符串格式化漏洞，参见[从WordPress SQLi谈PHP格式化字符串问题（2017.11.01更新）](https://paper.seebug.org/386/)
 
-[题目](source/vscms/)
+[题目](/source/vscms/)
 
 ## writeup
 ## 说明
